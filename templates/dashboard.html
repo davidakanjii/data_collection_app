@@ -56,6 +56,30 @@
         <!-- ✅ Navigation buttons -->
         <a href="/form" class="btn btn-primary">New Submission</a>
         <a href="/logout" class="btn btn-danger ms-2">Logout</a>
+
+        <!-- ✅ Admin-only user creation form -->
+        {% if session['role'] == 'admin' %}
+        <hr class="my-5">
+        <h4>Create New User (Admin Only)</h4>
+        <form method="POST" action="/create_user" class="bg-white p-4 border rounded shadow-sm mt-3">
+            <div class="mb-3">
+                <label for="new_username" class="form-label">Username</label>
+                <input type="text" name="new_username" id="new_username" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="new_password" class="form-label">Password</label>
+                <input type="password" name="new_password" id="new_password" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="new_role" class="form-label">Role</label>
+                <select name="new_role" id="new_role" class="form-select" required>
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-success">Create User</button>
+        </form>
+        {% endif %}
     </div>
 </body>
 </html>

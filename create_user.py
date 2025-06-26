@@ -8,10 +8,12 @@ c = conn.cursor()
 # Define new user credentials
 username = 'admin'
 password = generate_password_hash('admin123')  # You can change this
+role = 'admin'  # Set role to admin
 
-# Insert user
-c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
+# Insert user with role
+c.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", (username, password, role))
+
 conn.commit()
 conn.close()
 
-print("User created successfully.")
+print("Admin user created successfully.")
