@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash
 import os
 import sqlite3
 from werkzeug.utils import secure_filename
@@ -17,10 +17,12 @@ def allowed_file(filename):
 def init_db():
     conn = sqlite3.connect('data/database.db')
     c = conn.cursor()
+    # Updated users table to include 'role' with default 'user'
     c.execute('''CREATE TABLE IF NOT EXISTS users (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  username TEXT NOT NULL UNIQUE,
-                 password TEXT NOT NULL)''')
+                 password TEXT NOT NULL,
+                 role TEXT NOT NULL DEFAULT 'user')''')
     c.execute('''CREATE TABLE IF NOT EXISTS submissions (
                  id INTEGER PRIMARY KEY AUTOINCREMENT,
                  name TEXT,
@@ -41,23 +43,26 @@ def home():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+        username = request.form['username'].strip()
+        password = request.form['password'].strip()
         conn = sqlite3.connect('data/database.db')
         c = conn.cursor()
-        c.execute("SELECT * FROM users WHERE username = ?", (username,))
+        c.execute("SELECT password, role FROM users WHERE username = ?", (username,))
         user = c.fetchone()
         conn.close()
-        if user and check_password_hash(user[2], password):
+        if user and check_password_hash(user[0], password):
             session['username'] = username
+            session['role'] = user[1]  # Save role in session for access control
             return redirect(url_for('dashboard'))
         else:
-            return "Invalid credentials"
+            flash("Invalid username or password")
+            return redirect(url_for('login'))
     return render_template('login.html')
 
 @app.route('/logout')
 def logout():
     session.pop('username', None)
+    session.pop('role', None)
     return redirect(url_for('login'))
 
 @app.route('/form', methods=['GET', 'POST'])
@@ -96,6 +101,35 @@ def dashboard():
     submissions = c.fetchall()
     conn.close()
     return render_template('dashboard.html', submissions=submissions)
+
+@app.route('/create_user', methods=['POST'])
+def create_user_from_dashboard():
+    # Only admin users can create new users
+    if 'role' not in session or session['role'] != 'admin':
+        return redirect(url_for('dashboard'))
+
+    username = request.form['new_username'].strip()
+    password = request.form['new_password'].strip()
+    role = request.form['new_role'].strip().lower()
+
+    if role not in ['admin', 'user']:
+        return "Invalid role selected", 400
+
+    hashed_pw = generate_password_hash(password)
+
+    conn = sqlite3.connect('data/database.db')
+    cursor = conn.cursor()
+    try:
+        cursor.execute("INSERT INTO users (username, password, role) VALUES (?, ?, ?)", (username, hashed_pw, role))
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        flash("Username already exists.")
+        return redirect(url_for('dashboard'))
+    conn.close()
+
+    flash(f"User '{username}' created successfully with role '{role}'.")
+    return redirect(url_for('dashboard'))
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
